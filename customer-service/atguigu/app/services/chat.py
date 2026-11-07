@@ -1,4 +1,5 @@
 from datetime import timedelta
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -17,6 +18,42 @@ class ChatService:
         self._session = session
         self._settings = get_settings()
         self._realtime_service = RealtimeService(session)
+
+    async def get_chat_history(self, user_id: str) -> dict[str, Any]:
+        """
+        职责：获取当前用户下所有会话【活跃会话、关闭会话】的消息
+
+        :param user_id: 用户ID
+        :return:
+        """
+
+        # 1. 定义查询当前用户下所有会话的SQL
+        stmt = select(Message).join(Conversation, Message.conversation_id == Conversation.id).where(
+            Conversation.user_id == user_id)
+
+        # 2. 查询SQL语句
+        records = (await self._session.scalars(stmt)).all()
+
+        # 3. 过滤消息内容
+        conversation_messages = [
+            {
+                "conversation_id": record.conversation_id,
+                "role": record.role,  # 前端展示历史对话的时候渲染图标角色
+                "content": record.content  # 前端展示历史对话的消息内容
+            }
+            for record in records
+        ]
+
+        # 4. 获取当前用户的会话
+        conversation = await self._create_or_get_conversation(user_id)
+
+        # 5. 返回给前端使用
+        return {
+            "conversation_id": conversation.id,         #  当前活跃会话的会话ID-----1) 供历史消息区域在展示历史消息的时候，能对当前会话的消息，做一个特殊标记【聚合：区分当前会话的消息、以及非当前会话的消息】 2）让客户区域获取到当前会话下的消息
+            "conversation_mode": conversation.mode,     #  当前活跃会话的会话模式---前端右上角徽章区域展示用，刷新页面的时候，徽章变化
+            "messages": conversation_messages           # 有可能是关闭会话的消息，当前活跃会话的消息
+
+        }
 
     async def process_chat_message(self,
                                    user_id: str,

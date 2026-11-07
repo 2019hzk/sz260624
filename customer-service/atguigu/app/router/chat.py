@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter
 
 from atguigu.app.schemas import ChatMessageRequest
@@ -11,3 +13,10 @@ async def chat_endpoint(payload: ChatMessageRequest,
                         service: ChatServiceDep,
                         user_role_dep: UserRoleDep):
     await service.process_chat_message(user_role_dep.user_id, payload)
+
+
+@router.get("/history")
+async def get_history_endpoint(
+        service: ChatServiceDep,
+        user_role_dep: UserRoleDep)->dict[str,Any]:
+    return  await service.get_chat_history(user_role_dep.user_id)

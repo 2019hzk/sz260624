@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from atguigu.common.settings import get_settings
 
-engine = create_async_engine(url=get_settings().database_url, echo=True)
+engine = create_async_engine(url=get_settings().database_url, echo=False)
 AsyncSessionFactory = async_sessionmaker(engine, expire_on_commit=False)
 
 
@@ -23,25 +23,28 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(50))
     age: Mapped[int] = mapped_column(default=18)
 
+    def __repr__(self):
+        return f"id:{self.id},name:{self.name},age:{self.age}"
+
 
 async def crud_demo():
     async with AsyncSessionFactory() as session:
-        print("\n1. 新增")
-        user = User(name="张三", age=20)
-        session.add(user)
-        await session.commit()  # 直接 commit
-        print(f"创建成功: {user}")
+        # print("\n1. 新增")
+        # user = User(name="张三", age=20)
+        # session.add(user)
+        # await session.commit()  # 直接 commit
+        # print(f"创建成功: {user}")
 
         print("\n2. 查询")
-        stmt = select(User).where(User.name == "张三")
-        db_user = await session.scalar(stmt)  # one or none
+        stmt = select(User)
+        db_user = (await session.scalars(stmt)).all()
         print(f"查询结果: {db_user}")
 
-        print("\n3. 修改")
-        if db_user:
-            db_user.age = 25
-            await session.commit()
-        print(f"修改后: {db_user}")
+        # print("\n3. 修改")
+        # if db_user:
+        #     db_user.age = 25
+        #     await session.commit()
+        # print(f"修改后: {db_user}")
 
         # print("\n4. 删除")
         # if db_user:
@@ -67,14 +70,14 @@ async def main():
     # async with engine.begin() as conn:
     #     await conn.run_sync(Base.metadata.drop_all)
     #     await conn.run_sync(Base.metadata.create_all)
-    #
-    #     # Base.metadata.create_all(conn)
+
+    # Base.metadata.create_all(conn)
 
     # 2. 运行CRUD
-    # await crud_demo()
+    await crud_demo()
 
     # 3. 运行 expire_on_commit 对比
-    await compare_expire_on_commit()
+    # await compare_expire_on_commit()
 
     # 4. 关闭引擎
     await engine.dispose()
