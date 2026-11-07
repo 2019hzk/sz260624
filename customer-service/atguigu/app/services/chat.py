@@ -46,12 +46,13 @@ class ChatService:
 
         # 4. 获取当前用户的会话
         conversation = await self._create_or_get_conversation(user_id)
-
+        await self._session.commit()
         # 5. 返回给前端使用
         return {
-            "conversation_id": conversation.id,         #  当前活跃会话的会话ID-----1) 供历史消息区域在展示历史消息的时候，能对当前会话的消息，做一个特殊标记【聚合：区分当前会话的消息、以及非当前会话的消息】 2）让客户区域获取到当前会话下的消息
-            "conversation_mode": conversation.mode,     #  当前活跃会话的会话模式---前端右上角徽章区域展示用，刷新页面的时候，徽章变化
-            "messages": conversation_messages           # 有可能是关闭会话的消息，当前活跃会话的消息
+            "conversation_id": conversation.id,
+            # 当前活跃会话的会话ID-----1) 供历史消息区域在展示历史消息的时候，能对当前会话的消息，做一个特殊标记【聚合：区分当前会话的消息、以及非当前会话的消息】 2）让客户区域获取到当前会话下的消息
+            "conversation_mode": conversation.mode,  # 当前活跃会话的会话模式---前端右上角徽章区域展示用，刷新页面的时候，徽章变化
+            "messages": conversation_messages  # 有可能是关闭会话的消息，当前活跃会话的消息
 
         }
 
