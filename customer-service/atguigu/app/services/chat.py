@@ -60,9 +60,11 @@ class ChatService:
         # 6. 消息根据会话模式分流
         if conversation.mode == ConversationMode.AI:
             # 创建轮次
-            await  self._create_or_get_turn(conversation.id)    #  创建逻辑对象
+            await  self._create_or_get_turn(conversation.id)  # 创建逻辑对象---AI Woker扫描turns表
         else:
-            # QUEUED  HUMAN  ---->发送实时事件  TODO
+            # QUEUED  HUMAN  ---->发送实时事件通知客服端  要让客服端能够收到用户的最新消息
+            # 1. 创建实时事件表
+            # 2. 保存(保存到哪个目标通道，以及该目标通道对应的数据是什么)   # Realtime Woker扫描realtime_events表
             pass
 
         # 7. 统一提交

@@ -59,3 +59,15 @@ class ConversationTurn(Base):
     collect_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=get_utcnow)
+
+
+class RealtimeEvent(Base):
+    """等待实时推送 Worker 发布的实时消息事件。为了持久化"""
+
+    __tablename__ = "realtime_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    target: Mapped[str] = mapped_column(String(80), index=True)
+    data: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=get_utcnow)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
