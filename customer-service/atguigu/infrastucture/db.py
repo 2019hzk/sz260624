@@ -1,11 +1,15 @@
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy import text, select
 
+from atguigu.app.models.models import Base
 from atguigu.common.event_loop import run_async
 from atguigu.common.settings import get_settings
-from atguigu.test.orm import User
 
 # 1. sdk依赖           from  pathlib import Path
 # 2. 三方依赖           from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
@@ -28,11 +32,13 @@ async def get_async_session() -> AsyncGenerator[AsyncSession]:
             raise exc
 
 
-async def main():
-    async  for session in get_async_session():
-        result = await session.execute(text('select 1'))
-        print(result.scalar())  # 一行一列的数据
+async def init_db():
+    async  with async_engine.begin() as conn:
+        logger.info("数据库表准备初始化")
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+        logger.info("数据库表初始化成功")
 
 
 if __name__ == '__main__':
-    run_async(main())
+    run_async(init_db())
