@@ -6,6 +6,7 @@ from sqlalchemy import select
 from atguigu.app.models.enums import MessageRole, ConversationMode, TurnStatus
 from atguigu.app.models.models import Message, Conversation, ConversationTurn
 from atguigu.app.schemas import ChatMessageRequest
+from atguigu.app.services.realtime import RealtimeService
 from atguigu.common.settings import get_settings
 from atguigu.common.utils import get_utcnow, get_uid
 
@@ -15,6 +16,7 @@ class ChatService:
     def __init__(self, session: AsyncSession):
         self._session = session
         self._settings = get_settings()
+        self._realtime_service = RealtimeService(session)
 
     async def process_chat_message(self,
                                    user_id: str,
@@ -59,13 +61,11 @@ class ChatService:
 
         # 6. 消息根据会话模式分流
         if conversation.mode == ConversationMode.AI:
-            # 创建轮次
+            # 6.1 创建轮次
             await  self._create_or_get_turn(conversation.id)  # 创建逻辑对象---AI Woker扫描turns表
         else:
-            # QUEUED  HUMAN  ---->发送实时事件通知客服端  要让客服端能够收到用户的最新消息
-            # 1. 创建实时事件表
-            # 2. 保存(保存到哪个目标通道，以及该目标通道对应的数据是什么)   # Realtime Woker扫描realtime_events表
-            pass
+            # 6.2 发送实时事件通知客服端【只是发送给客服通道一个刷新工单的信号而已。】
+            self._realtime_service.add_event(message, conversation, notify_staff=True)
 
         # 7. 统一提交
         await self._session.commit()
