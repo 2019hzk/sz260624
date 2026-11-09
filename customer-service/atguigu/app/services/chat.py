@@ -170,3 +170,25 @@ class ChatService:
 
         # 3. 返回轮次
         return turn
+
+    async def finish_turn(self,
+                          claimed_turn: ConversationTurn,
+                          ai_result: dict[str, Any],
+                          error: Exception):
+        """
+        职责： 结算轮次相关信息
+        :param claimed_turn:
+        :param ai_result:
+        :param error:
+        :return:
+        """
+
+    async def claim_turn_and_build_payload(self)->tuple[ConversationTurn,dict[str,Any],str] | None :
+        """
+        职责： 领取轮次且构建请求载荷
+        :return:
+        """
+        pass
+
+
+
