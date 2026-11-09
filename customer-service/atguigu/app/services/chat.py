@@ -7,6 +7,7 @@ from sqlalchemy import select, func
 from atguigu.app.models.enums import MessageRole, ConversationMode, TurnStatus
 from atguigu.app.models.models import Message, Conversation, ConversationTurn
 from atguigu.app.schemas import ChatMessageRequest
+from atguigu.app.services.handoff import HandoffService
 from atguigu.app.services.realtime import RealtimeService
 from atguigu.common.settings import get_settings
 from atguigu.common.utils import get_utcnow, get_uid
@@ -18,6 +19,7 @@ class ChatService:
         self._session = session
         self._settings = get_settings()
         self._realtime_service = RealtimeService(session)
+        self._handoff_service = HandoffService(session)
 
     async def get_chat_history(self, user_id: str) -> dict[str, Any]:
         """
@@ -183,6 +185,56 @@ class ChatService:
         :return:
         """
 
+        # 1. 查询当前轮次对应的会话
+        conversation = await  self._session.scalar(
+            select(Conversation).where(Conversation.id == claimed_turn.conversation_id))
+
+        # 2. 校验(用户是否插话)
+        if claimed_turn.snapshot_message_id != self._get_latest_user_message_id(str(conversation)):
+            # 2.1 代表 用户进行了新的会话插入,只是修改轮次的状态 不会保存ai的回复结果
+            claimed_turn.status = TurnStatus.SUPERSED  # 终态
+            await self._session.commit()
+            return
+
+        # 3. 如果调用ai-service失败
+        if error is not None:
+            # 3.1 重试用完
+            if claimed_turn.attempts > self._settings.ai_worker_max_attempts:
+                claimed_turn.status = TurnStatus.FAILED  # 终态
+                # 记录失败消息【对内】以及让前端看到重试失败消息内容【对外】)
+                await self._save_ai_result({"kind": "error", "text": "AI Service调用失败,请您稍后继续重试!"},
+                                           conversation)
+
+
+            # 3.2 重试未用完
+            else:
+                # 重试逻辑
+                claimed_turn.status = TurnStatus.COLLECTING  # 初始态
+                claimed_turn.collect_until = get_utcnow() + timedelta(
+                    seconds=self._settings.ai_worker_retry_delay_seconds)  # 更新时间(已经过期)【慢一些调用ai-service】
+
+            await  self._session.commit()
+            return
+
+        # 4. 调用ai-service成功(保存ai_result) 保存到哪些表中 【messages、realtime_events】？ 根据回复类型处理各自逻辑
+
+        # 4.1 修改轮次状态为完成
+        claimed_turn.status = TurnStatus.COMPLETED
+
+        # 4.2 回复类型转人工请求
+        if ai_result['reply_type'] == "REQUEST_HANDOFF":
+            # a) 转人工请求
+            # 创建工单   # summary:面向客服的工单简短摘要[llm]
+            self._handoff_service.create_handoff(conversation, summary=ai_result['summary'])
+            # b) 修改会话模式
+            conversation.mode = ConversationMode.QUEUED
+
+        #  4.3 回复类型是正常的回答
+        # 保存转人工请求的内容到messages表和realtime_events表中
+        self._save_ai_result(ai_result, conversation)
+
+        await self._session.commit()
+
     async def claim_turn_and_build_payload(self) -> tuple[ConversationTurn, dict[str, Any], str] | None:
         """
         职责： 领取轮次且构建请求载荷
@@ -306,3 +358,32 @@ class ChatService:
                 for history in history_messages
             ]
         }
+
+    def _save_ai_result(self,
+                        ai_result: dict[str, Any],
+                        conversation: Conversation
+                        ):
+        """
+        职责：保存回复内容到messages表和realtime_events表中
+        :param ai_result:
+        :return:
+        """
+
+        # 1. 保存回复内容到messages表（对内）
+        message = Message(
+            message_id=get_uid("msg"),
+            conversation_id=conversation.id,
+            role=MessageRole.AI,
+            message_type="text",  # 回复类型只支持文本回复
+            content=ai_result  # 直接将ai-result的字典结构的内容存到消息表的content中了。
+        )
+
+        self._session.add(message)
+
+        # 2. 修改会话的最后一次有效时间
+        conversation.last_active_at = get_utcnow()
+
+        # 3. 保存回复内容到realtime_events表(对外)
+        self._realtime_service.add_event(message, conversation,
+                                         notify_user=True,
+                                         notify_staff=conversation.mode == ConversationMode.QUEUED)

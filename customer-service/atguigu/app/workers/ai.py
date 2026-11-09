@@ -1,6 +1,8 @@
+import httpx
 import logging
 from typing import Any
 
+from atguigu.app.services.auth import encode_access_token
 from atguigu.app.services.chat import ChatService
 from atguigu.infrastucture.db import session_factory
 
@@ -62,7 +64,35 @@ class AIWorker:
                                user_id: str) -> tuple[dict[str, Any] | None, Exception | None]:
         """
         职责：调用ai-service
+        1. 构建ai-service请求url
+        2. 携带参数[1. url  2. 头、cookies 3. 请求体]
+        3. 发送请求：httpx :client
+        4. 响应数据
         :param payload:
         :param user_id:
         :return:
         """
+
+        access_token = encode_access_token(user_id)
+
+        # a) 构建请求头
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "X-Internal-Service-Token": self._settings.internal_service_token,
+        }
+        # b) 构建超时
+        timeout = httpx.Timeout(self._settings.ai_timeout_seconds, connect=5)
+
+        # c) 发送请求
+        try:
+            async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
+                response = await client.post(
+                    f"{self._settings.ai_service_url}/internal/v1/agent/runs",
+                    headers=headers,
+                    json=payload,
+                )
+                response.raise_for_status()
+                return response.json(), None
+        except Exception as exc:
+            logger.exception("会话 %s 调用 AI Service 失败: %s", payload["conversation_id"], exc)
+            return None, exc
