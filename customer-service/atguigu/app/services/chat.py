@@ -206,22 +206,26 @@ class ChatService:
             return None
 
         # 2.2 领取到（修改轮次信息）
-        # a) 修改轮次状态
+        # a) 查询当前轮次的会话
+        conversation = await self._session.scalar(
+            select(Conversation).where(Conversation.id == claimed_turn.conversation_id))
+        # b) 修改轮次状态
         claimed_turn.status = TurnStatus.RUNNING
-
-        # b) 更新领取轮次的次数（后续利用：轮次的重试判定）
+        # c) 更新领取轮次的次数（后续利用：轮次的重试判定）
         claimed_turn.attempts += 1
-
-        # c) 更新领取轮次的回话快照用户角色消息ID
-        latest_user_message_id = await self._get_latest_user_message_id(claimed_turn.conversation_id)
-        # 1）校验插话是否发生 2） 确定轮次的消息下限
+        # d) 更新领取轮次的回话快照用户角色消息ID
+        latest_user_message_id = await self._get_latest_user_message_id(str(conversation.id))
+        # ①)校验插话是否发生 ②)确定轮次的消息下限
         claimed_turn.snapshot_message_id = latest_user_message_id  # 当前领取轮次这一时刻，该轮次会话对应用户最新消息的消息ID
 
+        # 3. 构建调用ai-service请求载荷
+        payload: dict[str, Any] = await self._build_request_payload(claimed_turn, conversation)
 
-        #
+        # 4. 提交(必须在此处提交，不要放到外部with代码快一起提交)
+        await self._session.commit()
 
-
-
+        # 5. 返回领取到的轮次、请求载荷、用户ID
+        return claimed_turn, payload, str(conversation.user_id)
 
     async def _get_latest_user_message_id(self, conversation_id: str) -> int:
         """
@@ -240,3 +244,65 @@ class ChatService:
         latest_user_message_id = await  self._session.scalar(stmt)
 
         return latest_user_message_id
+
+    async def _build_request_payload(self,
+                                     claimed_turn: ConversationTurn,
+                                     conversation: Conversation) -> dict[str, Any]:
+        """
+        职责： 构建AI Service请求载荷
+        构建1 当前轮次的消息
+        构建2 当前会话的历史消息
+        :param claimed_turn:
+        :param conversation:
+        :return:
+        """
+
+        # 1. 构建当前会话对应轮次的消息
+        # 1.1 构建确定当前轮次上线的消息ID
+        stmt = select(func.max(Message.id)).where(
+            Message.conversation_id == conversation.id,
+            Message.role != MessageRole.USER
+        )
+
+        # 1.2 查询SQL语句
+        lasted_reply_message_id = await self._session.scalar(stmt) or 0
+
+        current_turn_messages_stmt = select(Message).where(
+            Message.conversation_id == conversation.id,
+            Message.id > lasted_reply_message_id,
+            Message.id <= claimed_turn.snapshot_message_id
+        ).order_by(Message.id)
+
+        current_turn_messages = (await self._session.scalars(current_turn_messages_stmt)).all()
+
+        # 2. 构建当前会话的历史消息(裁剪30条消息)
+        # 2.1 定义查询历史消息的SQL语句
+        history_stmt = select(Message).where(
+            Message.conversation_id == conversation.id,
+            Message.id < current_turn_messages[0].id
+        ).order_by(Message.id.desc()).limit(30)
+
+        # 2.2 查询历史消息的SQL语句
+        history_messages = reversed((await self._session.scalars(history_stmt)).all())
+
+        # 3. 返回载荷数据
+        return {
+            "conversation_id": conversation.id,
+            "messages": [
+                {
+                    "role": message.role,
+                    "content": message.content,
+                    "type": message.message_type
+                }
+                for message in current_turn_messages
+
+            ],
+            "history": [
+                {
+                    "role": history.role,
+                    "content": history.content,
+                    "type": history.message_type
+                }
+                for history in history_messages
+            ]
+        }
