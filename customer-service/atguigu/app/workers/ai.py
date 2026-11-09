@@ -29,7 +29,7 @@ class AIWorker:
         while True:
             claimed_turn = await self._process_claim_turn()
             if not claimed_turn:
-                await  asyncio.sleep(self._settings.ai_worker_poll_interval_ms / 1000)
+                await  asyncio.sleep(self._settings.ai_worker_poll_interval_ms / 1000)  # 睡眠一会 再次领取
 
     async def _process_claim_turn(self) -> bool:
         """
@@ -55,6 +55,8 @@ class AIWorker:
             # 4. 结算轮次相关信息
             await chat_service.finish_turn(claimed_turn, ai_result, error)
 
+            return True
+
     async def _call_ai_service(self,
                                payload: dict[str, Any],
                                user_id: str) -> tuple[dict[str, Any] | None, Exception | None]:
@@ -64,5 +66,3 @@ class AIWorker:
         :param user_id:
         :return:
         """
-
-

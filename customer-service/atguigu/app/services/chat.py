@@ -2,7 +2,7 @@ from datetime import timedelta
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from atguigu.app.models.enums import MessageRole, ConversationMode, TurnStatus
 from atguigu.app.models.models import Message, Conversation, ConversationTurn
@@ -183,12 +183,60 @@ class ChatService:
         :return:
         """
 
-    async def claim_turn_and_build_payload(self)->tuple[ConversationTurn,dict[str,Any],str] | None :
+    async def claim_turn_and_build_payload(self) -> tuple[ConversationTurn, dict[str, Any], str] | None:
         """
         职责： 领取轮次且构建请求载荷
         :return:
         """
-        pass
+
+        # 1. 领取到满足条件的轮次(1.1 轮次状态：collecting 1.2 轮次的时间到期)
+
+        # a) 定义待领取轮次的SQL语句
+        stmt = select(ConversationTurn).where(
+            ConversationTurn.status == TurnStatus.COLLECTING,
+            ConversationTurn.collect_until <= get_utcnow()
+        ).order_by(ConversationTurn.collect_until)
+
+        # b) 查询SQL语句
+        claimed_turn = await  self._session.scalar(stmt)
+
+        # 2. 判断是否领取到
+        # 2.1 没有领取到
+        if claimed_turn is None:
+            return None
+
+        # 2.2 领取到（修改轮次信息）
+        # a) 修改轮次状态
+        claimed_turn.status = TurnStatus.RUNNING
+
+        # b) 更新领取轮次的次数（后续利用：轮次的重试判定）
+        claimed_turn.attempts += 1
+
+        # c) 更新领取轮次的回话快照用户角色消息ID
+        latest_user_message_id = await self._get_latest_user_message_id(claimed_turn.conversation_id)
+        # 1）校验插话是否发生 2） 确定轮次的消息下限
+        claimed_turn.snapshot_message_id = latest_user_message_id  # 当前领取轮次这一时刻，该轮次会话对应用户最新消息的消息ID
+
+
+        #
 
 
 
+
+    async def _get_latest_user_message_id(self, conversation_id: str) -> int:
+        """
+        职责：获取当前轮次对应会话的[最新]"用户角色"的消息ID
+        :param conversation_id:
+        :return:
+        """
+
+        # 1. 定义查询SQL语句
+        stmt = select(func.max(Message.id)).where(
+            Message.conversation_id == conversation_id,
+            Message.role == MessageRole.USER
+        )
+
+        # 2. 查询SQL语句
+        latest_user_message_id = await  self._session.scalar(stmt)
+
+        return latest_user_message_id
