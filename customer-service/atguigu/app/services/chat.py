@@ -83,7 +83,7 @@ class ChatService:
             return
 
         # 2. 获取会话
-        conversation = await self._create_or_get_conversation(user_id)
+        conversation = await self._create_or_get_conversation(user_id)    # 可能会阻塞
 
         # 3. 构建消息对象
         message = Message(message_id=payload.message_id,
@@ -120,7 +120,9 @@ class ChatService:
 
         # 1. 查询之前有效的会话
         # 1.1 定义SQL语句
-        stmt = select(Conversation).where(Conversation.user_id == user_id, Conversation.mode != ConversationMode.CLOSED)
+        stmt = (select(Conversation)
+                .where(Conversation.user_id == user_id, Conversation.mode != ConversationMode.CLOSED)
+                .with_for_update())
 
         # 1.2 执行SQL语句
         conversation = await self._session.scalar(stmt)
@@ -184,10 +186,9 @@ class ChatService:
         :param error:
         :return:
         """
-
         # 1. 查询当前轮次对应的会话
         conversation = await  self._session.scalar(
-            select(Conversation).where(Conversation.id == claimed_turn.conversation_id))
+            select(Conversation).where(Conversation.id == claimed_turn.conversation_id).with_for_update())
 
         # 2. 校验(用户是否插话)
         if claimed_turn.snapshot_message_id != self._get_latest_user_message_id(str(conversation)):
@@ -204,7 +205,6 @@ class ChatService:
                 # 记录失败消息【对内】以及让前端看到重试失败消息内容【对外】)
                 await self._save_ai_result({"kind": "error", "text": "AI Service调用失败,请您稍后继续重试!"},
                                            conversation)
-
 
             # 3.2 重试未用完
             else:
@@ -231,7 +231,7 @@ class ChatService:
 
         #  4.3 回复类型是正常的回答
         # 保存转人工请求的内容到messages表和realtime_events表中
-        self._save_ai_result(ai_result, conversation)
+        self._save_ai_reply(ai_result, conversation)
 
         await self._session.commit()
 
@@ -260,7 +260,7 @@ class ChatService:
         # 2.2 领取到（修改轮次信息）
         # a) 查询当前轮次的会话
         conversation = await self._session.scalar(
-            select(Conversation).where(Conversation.id == claimed_turn.conversation_id))
+            select(Conversation).where(Conversation.id == claimed_turn.conversation_id).with_for_update())   # 可能会阻塞
         # b) 修改轮次状态
         claimed_turn.status = TurnStatus.RUNNING
         # c) 更新领取轮次的次数（后续利用：轮次的重试判定）
@@ -359,10 +359,10 @@ class ChatService:
             ]
         }
 
-    def _save_ai_result(self,
-                        ai_result: dict[str, Any],
-                        conversation: Conversation
-                        ):
+    def _save_ai_reply(self,
+                       ai_result: dict[str, Any],
+                       conversation: Conversation
+                       ):
         """
         职责：保存回复内容到messages表和realtime_events表中
         :param ai_result:
