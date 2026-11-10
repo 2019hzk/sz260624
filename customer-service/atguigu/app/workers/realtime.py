@@ -6,6 +6,7 @@ from redis import RedisError
 
 from atguigu.app.models.models import RealtimeEvent
 from atguigu.app.services.realtime import RealtimeService
+from atguigu.common.event_loop import run_async
 from atguigu.common.settings import get_settings
 from atguigu.infrastucture.db import session_factory
 from atguigu.infrastucture.redis import redis_client
@@ -43,12 +44,12 @@ class RealtimeWorker:
             event = await realtime_service.get_unpublish_event()
 
             # 3. 未找到要发布的事件
-            if event:
+            if event is None:
                 return False
 
             # 4. 发布给Redis通道( 发送给哪个通道 给通道发送什么数据)
             try:
-                await self._redis_client.publish(event.target, json.dumps(event, ensure_ascii=False))
+                await self._redis_client.publish(event.target, json.dumps(event.data,ensure_ascii=False))
             except  RedisError as exc:
                 logger.exception("发送给Redis服务的%s失败,原因:%s", event.target, str(exc))
                 return False
@@ -58,3 +59,11 @@ class RealtimeWorker:
 
             # 6. 返回
             return True
+
+
+async def main_test():
+    await RealtimeWorker().start()
+
+
+if __name__ == '__main__':
+    run_async(main_test())
