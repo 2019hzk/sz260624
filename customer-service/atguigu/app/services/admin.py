@@ -89,7 +89,7 @@ class AdminService:
 
         # 3. 修改工单的状态以及会话的模式
         # 3.1 修改工单的信息
-        handoff.status = HandoffStatus.ACTIVE
+        handoff.status = HandoffStatus.ACTIVE  # 并发写（没有问题，覆盖写。不是追加写）
         handoff.staff_id = staff_id
 
         # 3.2 修改会话的模式
@@ -116,10 +116,10 @@ class AdminService:
         return {"messages": conversation_messages}
 
     async def _get_handoff_conversation(self, handoff_id: str) -> tuple[Handoff, Conversation]:
-        handoff = await self._session.scalar(select(Handoff).where(Handoff.id == handoff_id))
+        handoff = await self._session.scalar(select(Handoff).where(Handoff.id == handoff_id).with_for_update())
 
         conversation = await self._session.scalar(
-            select(Conversation).where(Conversation.id == handoff.conversation_id))
+            select(Conversation).where(Conversation.id == handoff.conversation_id).with_for_update())
 
         return handoff, conversation
 

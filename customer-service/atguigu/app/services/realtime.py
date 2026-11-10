@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from sqlalchemy import select
 from atguigu.app.models.models import Message, Conversation, RealtimeEvent
+from atguigu.common.utils import get_utcnow
 
 
 class RealtimeService:
@@ -36,6 +37,23 @@ class RealtimeService:
 
         # 3. 遍历通道
         for target_channel in target_channels:
-            self._session.add(RealtimeEvent(target=target_channel, data=event_data))   # 不会利用event_data，客服端只是作为一次信号，调用刷新工单列表接口
+            self._session.add(
+                RealtimeEvent(target=target_channel, data=event_data))  # 不会利用event_data，客服端只是作为一次信号，调用刷新工单列表接口
 
+    async def get_unpublish_event(self) -> RealtimeEvent:
+        """
+        职责：获取未发布的事件(单条)
+        :return:
+        """
+        stmt = select(RealtimeEvent).where(RealtimeEvent.published_at.is_(None)).order_by(RealtimeEvent.id).limit(1)
 
+        return await self._session.scalar(stmt)
+
+    async def mark_published_event(self, event: RealtimeEvent):
+        """
+        职责：修改事件的发布时间
+        :param event:
+        :return:
+        """
+        event.published_at = get_utcnow()
+        await self._session.commit()
