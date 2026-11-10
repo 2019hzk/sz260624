@@ -97,11 +97,3 @@ class AIWorker:
             logger.exception("会话 %s 调用 AI Service 失败: %s", payload["conversation_id"], exc)
             return None, exc
 
-
-async def main_test():
-    ai_worker = AIWorker()
-
-    await ai_worker.start()
-
-if __name__ == '__main__':
-    asyncio.run(main_test())

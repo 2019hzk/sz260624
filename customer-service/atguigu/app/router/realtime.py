@@ -62,8 +62,8 @@ async def get_realtime_endpoint(ws: WebSocket):
 
     # 8. 并发执行两个协程任务
     tasks = [
-        asyncio.create_task(forward_event),
-        asyncio.create_task(disconnected)
+        asyncio.create_task(forward_event()),
+        asyncio.create_task(disconnected())
     ]
 
     # --------------------------------------优雅关闭--------------------------------------
