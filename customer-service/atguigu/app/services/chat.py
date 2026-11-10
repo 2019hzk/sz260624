@@ -83,7 +83,7 @@ class ChatService:
             return
 
         # 2. 获取会话
-        conversation = await self._create_or_get_conversation(user_id)    # 可能会阻塞
+        conversation = await self._create_or_get_conversation(user_id)  # 可能会阻塞
 
         # 3. 构建消息对象
         message = Message(message_id=payload.message_id,
@@ -203,8 +203,8 @@ class ChatService:
             if claimed_turn.attempts > self._settings.ai_worker_max_attempts:
                 claimed_turn.status = TurnStatus.FAILED  # 终态
                 # 记录失败消息【对内】以及让前端看到重试失败消息内容【对外】)
-                await self._save_ai_result({"kind": "error", "text": "AI Service调用失败,请您稍后继续重试!"},
-                                           conversation)
+                self._save_ai_reply({"kind": "error", "text": "AI Service调用失败,请您稍后继续重试!"},
+                                    conversation)
 
             # 3.2 重试未用完
             else:
@@ -260,7 +260,7 @@ class ChatService:
         # 2.2 领取到（修改轮次信息）
         # a) 查询当前轮次的会话
         conversation = await self._session.scalar(
-            select(Conversation).where(Conversation.id == claimed_turn.conversation_id).with_for_update())   # 可能会阻塞
+            select(Conversation).where(Conversation.id == claimed_turn.conversation_id).with_for_update())  # 可能会阻塞
         # b) 修改轮次状态
         claimed_turn.status = TurnStatus.RUNNING
         # c) 更新领取轮次的次数（后续利用：轮次的重试判定）
