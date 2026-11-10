@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from atguigu.app.dependencies import AdminServiceDep, StaffRoleDep
+from atguigu.app.dependencies import AdminServiceDep, StaffRoleDep, AdminRoleDep
 from atguigu.app.schemas import ReplyRequest
 
 router = APIRouter(prefix="/api/v1", tags=["管理端路由接口"])
@@ -49,3 +49,13 @@ async def resolve_handoff_endpoint(
         _: StaffRoleDep
 ):
     await    service.resolve_handoff(handoff_id)
+
+
+
+
+@router.get("/admin/metrics")
+async def get_metrics_endpoint(
+        service: AdminServiceDep,
+        _: AdminRoleDep
+):
+    return await    service.get_metrics()

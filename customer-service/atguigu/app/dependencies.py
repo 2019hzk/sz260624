@@ -38,3 +38,10 @@ def require_staff_role_auth(authorization: Annotated[str | None, Header()]) -> C
 
 
 StaffRoleDep = Annotated[CurrentUser, Depends(require_staff_role_auth)]
+
+
+def require_admin_role_auth(authorization: Annotated[str | None, Header()]) -> CurrentUser:
+    return authorized_user(authorization, "admin")
+
+
+AdminRoleDep = Annotated[CurrentUser, Depends(require_admin_role_auth)]

@@ -1,5 +1,7 @@
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from fastapi import HTTPException
 
 from atguigu.app.models.enums import HandoffStatus, ConversationMode, MessageRole
@@ -15,6 +17,21 @@ class AdminService:
         self._session = session
         self._settings = get_settings()
         self._realtime_service = RealtimeService(session)
+
+    async def get_metrics(self) -> dict[str, Any]:
+        """
+        职责：获取指标信息(数量)
+        :return:
+        """
+        return {
+            "conversations": await self._get_count(Conversation.id),
+            "handoffs": await self._get_count(Handoff.id),
+            "queued": await self._get_count(Conversation.id, Conversation.mode == ConversationMode.QUEUED),
+            "human": await self._get_count(Conversation.id, Conversation.mode == ConversationMode.HUMAN)
+        }
+
+    async def _get_count(self, col, *condition_expr) -> int:
+        return await  self._session.scalar(select(func.count(col)).where(*condition_expr))
 
     async def resolve_handoff(self, handoff_id: str):
         """
