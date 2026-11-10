@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from asyncio import gather
 
 from atguigu.app.services.auth import decode_access_token
 from atguigu.infrastucture.redis import redis_client
@@ -57,7 +56,7 @@ async def get_realtime_endpoint(ws: WebSocket):
                 await ws.send_text(event_data)  # 将通道的数据，给前端使用  RedisError(Exception)
 
     async def disconnected():
-        # 7.
+        # 7. 服务端监听ws通道有没有关闭
         while True:
             await ws.receive_text()  # WebSocketDisconnectedError.
 
@@ -67,6 +66,7 @@ async def get_realtime_endpoint(ws: WebSocket):
         asyncio.create_task(disconnected)
     ]
 
+    # --------------------------------------优雅关闭--------------------------------------
     # 9. 对任务状态监听
     # 任务做完了。【协程任务执行期间，正常结束，协程任务执行期间，出现了异常】
     _, pending = await asyncio.wait(tasks,
@@ -79,4 +79,5 @@ async def get_realtime_endpoint(ws: WebSocket):
     # 让事件循环线程获取到执行协程任务的控制权
     # gather:协程任务做聚合管理
     # wait: 协程任务监听器
+    # await asyncio.sleep(10)
     await  asyncio.gather(*tasks, return_exceptions=True)  # 等没有出现异常的那个协程任务 彻底执行完
