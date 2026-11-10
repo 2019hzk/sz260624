@@ -101,16 +101,19 @@ class AdminService:
         # 5. 提交
         await self._session.commit()
 
-    async def get_handoff_messages(self, handoff_id: str) -> list[Message]:
+    async def get_handoff_messages(self, handoff_id: str) -> dict[str, Any]:
         """
         职责：管理工单对应会话的消息
 
         :param handoff_id:
         :return:
         """
-        handoff, conversation = await self._get_handoff_conversation(handoff_id)
-        return list(
-            (await self._session.scalars(select(Message).where(Message.conversation_id == conversation.id))).all())
+        stmt = select(Message).join(Handoff, Message.conversation_id == Handoff.conversation_id).where(
+            Handoff.id == handoff_id
+        ).order_by(Message.id)
+
+        conversation_messages = (await self._session.scalars(stmt)).all()
+        return {"messages": conversation_messages}
 
     async def _get_handoff_conversation(self, handoff_id: str) -> tuple[Handoff, Conversation]:
         handoff = await self._session.scalar(select(Handoff).where(Handoff.id == handoff_id))
