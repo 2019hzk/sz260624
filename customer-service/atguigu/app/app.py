@@ -2,10 +2,9 @@ import asyncio
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from atguigu.app.router import hello
-from atguigu.app.router import chat
-from atguigu.app.router import admin
-from atguigu.app.router import realtime
+from atguigu.app.routers import chat
+from atguigu.app.routers import admin
+from atguigu.app.routers import realtime
 from atguigu.app.workers.ai import AIWorker
 from atguigu.app.workers.realtime import RealtimeWorker
 from atguigu.common.settings import get_settings
@@ -29,7 +28,6 @@ app.add_middleware(
 
 )
 
-app.include_router(hello.router)
 app.include_router(chat.router)
 app.include_router(admin.router)
 app.include_router(realtime.router)

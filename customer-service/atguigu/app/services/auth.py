@@ -47,6 +47,6 @@ def decode_access_token(access_token: str) -> CurrentUser:
 def encode_access_token(user_id: str) -> str:
     current_user = CurrentUser(user_id=user_id)
     access_token = jwt.encode(current_user.model_dump(), key=get_settings().jwt_secret,
-                              algorithms=[get_settings().jwt_algorithm])
+                              algorithm=get_settings().jwt_algorithm)
 
     return access_token
