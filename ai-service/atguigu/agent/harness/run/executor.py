@@ -1,17 +1,20 @@
 import logging
 import time
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
+from langchain_core.callbacks import UsageMetadataCallbackHandler
 
+from atguigu.agent.harness.run.context import build_messages, AgentRunContext
 from atguigu.app.models.enums import AgentTraceStatus
 from atguigu.app.models.models import AgentTrace
 from atguigu.app.schemas import AgentRunRequest, CurrentUser
 from atguigu.common.settings import get_settings
+from atguigu.agent.harness.validator.validator import Validator, ValidateAgentOutError
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class AgentExecutor:
@@ -20,6 +23,7 @@ class AgentExecutor:
         self._settings = get_settings()
         self._session = session
         self._agent = agent
+        self._validator = Validator()
 
     async def start_run(self,
                         payload: AgentRunRequest,
@@ -51,7 +55,7 @@ class AgentExecutor:
         # 2. 调用Agent
         start_time = time.perf_counter()
         try:
-            run_result = self._invoke_agent()
+            run_result = await self._invoke_agent(payload, current_user, agent_traces)
         except Exception as exc:
             logger.exception("Agent推理会话 %s 任务期间出错", payload.conversation_id)
             agent_traces.status = AgentTraceStatus.FAILED
@@ -72,9 +76,57 @@ class AgentExecutor:
         # 5. 返回
         return run_result
 
-if __name__ == '__main__':
-    start_time = time.perf_counter()
+    async def _invoke_agent(self,
+                            payload: AgentRunRequest,
+                            current_user: CurrentUser,
+                            agent_traces: AgentTrace) -> dict[str, Any] | None:
+        """
+        职责：调用Agent对象真正完成推理
+        :param payload:
+        :param current_user:
+        :param agent_traces:
+        :return:
+        """
+        # 1. 构建LangChain标准的消息对象
+        messages = build_messages(payload)
 
-    time.sleep(2)
+        call_back = UsageMetadataCallbackHandler()
 
-    print(time.perf_counter() - start_time)
+        # 2. 构建上下文
+        context = AgentRunContext(
+            access_token=current_user.access_token,
+            trace_id=agent_traces.id
+        )
+
+        # 3. Agent运行
+        try:
+            # 3.1 调用Agent
+            agent_output = await self._agent.ainvoke({"messages": messages},
+                                                     context=context,
+                                                     config={
+                                                         "callbacks": [call_back]
+                                                     })
+
+            # run_result = self._validator.validate_agent_output(agent_output)
+            return agent_output
+            # 3.2 调用Agent期间出错
+        except ValidateAgentOutError as exc:
+            # 3.3 重试纠错（把执行完的结果以及【我要求你根据上一次结果的信息，给我重试】指令）
+            pass
+        finally:
+            # 3.4 统计token用量
+            input_tokens, output_tokens = self._summary_tokens(call_back)
+            agent_traces.input_tokens = input_tokens
+            agent_traces.output_tokens = output_tokens
+
+    def _summary_tokens(self, call_back: UsageMetadataCallbackHandler) -> tuple[int, int]:
+        """
+        职责：统计调用Agent期间Token用量
+        :return:
+        """
+        all_model_usage: list[dict[str, Any]] = list(call_back.usage_metadata.values())
+
+        input_tokens = sum(model_usage.get('input_tokens', 0) for model_usage in all_model_usage)
+        output_tokens = sum(model_usage.get('output_tokens', 0) for model_usage in all_model_usage)
+
+        return input_tokens, output_tokens
