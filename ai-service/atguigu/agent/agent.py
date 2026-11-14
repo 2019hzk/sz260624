@@ -7,14 +7,18 @@ agent=llm+tools
 """
 from langchain.agents import create_agent
 from langchain_core.callbacks import UsageMetadataCallbackHandler
-
 from atguigu.agent.harness.run.context import AgentRunContext
+from atguigu.agent.harness.tools.catalog import TOOL_CATALOG
 from atguigu.agent.llm.adapter import get_llm_client
-
+from atguigu.agent.llm.output import AgentOutput
+from atguigu.agent.llm.prompt import build_system_prompt
 
 def create_ai_agent():
     return create_agent(  # type:ignore
         model=get_llm_client(),
+        system_prompt=build_system_prompt(),
+        tools=TOOL_CATALOG.get_agent_tools(),
+        response_format=AgentOutput,
         context_schema=AgentRunContext  # 类型提示，不传入都没有关系
     )
 

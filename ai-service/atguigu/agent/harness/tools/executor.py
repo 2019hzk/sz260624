@@ -43,7 +43,7 @@ class ToolExecutor:
             tool_result = ToolResult(
                 success=False,
                 code=ToolResultCode.TOOL_CALL_FAILED,             # 业务工具全部调用失败了【TOOL_CALL_FAILED】===直接降级
-                message=f"业务工具调用失败，异常原因:{exc}"
+                message=f"业务工具调用失败，无法获取可靠依据，异常原因:{exc}"
             )
 
         # 2. 入库

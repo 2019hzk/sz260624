@@ -25,13 +25,12 @@ class ToolCatalog:
         self.tools = tools  # 接收工具完整信息（工具对象以及工具类别）
         self.tool_categories = {tool.name: category for tool, category in tools}  # 接收工具对象和工具类比之间映射关系
 
-    def get_agent_tools(self):
+    def get_agent_tools(self) -> list[BaseTool]:
         """
-        职责: 返回所有的工具
+        职责: 返回所有的工具对象
         :return:
         """
-
-        return self.tools
+        return [tool for tool, _ in self.tools]
 
     def get_tool_category(self, tool_name: str):
         """
@@ -42,9 +41,7 @@ class ToolCatalog:
         return self.tool_categories[tool_name]
 
 
-
-
-
+# 实例对象
 TOOL_CATALOG = ToolCatalog([
     (search_products, ToolCategory.BUSINESS),
     (get_product, ToolCategory.BUSINESS),
