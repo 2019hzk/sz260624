@@ -10,3 +10,6 @@ class AgentTraceStatus(StrEnum):
 
 
 
+class ToolResultCode(StrEnum):
+    TOOL_CALL_FAILED="TOOL_CALL_FAILED"
+

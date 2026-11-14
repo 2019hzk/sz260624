@@ -3,6 +3,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String
+from sqlalchemy.dialects.postgresql import JSONB
 
 from atguigu.app.models.enums import AgentTraceStatus
 from atguigu.common.utils import get_uid, get_utcnow
@@ -38,8 +39,8 @@ class AgentToolCall(Base):
     trace_id: Mapped[str] = mapped_column(ForeignKey("agent_traces.id"), index=True)
     tool_call_id: Mapped[str] = mapped_column(String(120))
     tool_name: Mapped[str] = mapped_column(String(80), index=True)
-    arguments: Mapped[dict[str, Any]] = mapped_column(JSON)
-    result: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    arguments: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    result: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     success: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=get_utcnow)
