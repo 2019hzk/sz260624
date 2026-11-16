@@ -112,7 +112,6 @@ class ChatService:
 
         }
 
-
     async def claim_turn_and_build_payload(self) -> tuple[ConversationTurn, dict[str, Any], str] | None:
         """
         职责： 领取轮次且构建请求载荷
@@ -157,7 +156,6 @@ class ChatService:
         # 5. 返回领取到的轮次、请求载荷、用户ID
         return claimed_turn, payload, str(conversation.user_id)
 
-
     async def finish_turn(self,
                           claimed_turn: ConversationTurn,
                           ai_result: dict[str, Any],
@@ -184,10 +182,11 @@ class ChatService:
         if error is not None:
             # 3.1 重试用完
             if claimed_turn.attempts > self._settings.ai_worker_max_attempts:
-                claimed_turn.status = TurnStatus.FAILED  # 终态
-                # 记录失败消息【对内】以及让前端看到重试失败消息内容【对外】)
-                self._save_ai_reply({"kind": "error", "text": "AI Service调用失败,请您稍后继续重试!"},
-                                    conversation)
+                claimed_turn.status = TurnStatus.FAILED
+                self._admin_service.create_handoff(conversation,
+                                                   summary="AI 服务多次调用异常，系统自动降级转接人工客服")  # 人工客服工单表创建一个工单
+                conversation.mode = ConversationMode.QUEUED
+                self._save_ai_reply(conversation, {"text": "当前智能助手正忙，已自动为您转接人工客服处理，请稍候。"})  # 用户看到的text内容
 
             # 3.2 重试未用完
             else:
@@ -217,7 +216,6 @@ class ChatService:
         self._save_ai_reply(ai_result, conversation)
 
         await self._session.commit()
-
 
     async def _get_latest_user_message_id(self, conversation_id: str) -> int:
         """
@@ -363,7 +361,6 @@ class ChatService:
 
         # 3. 返回轮次
         return turn
-
 
     def _save_ai_reply(self,
                        ai_result: dict[str, Any],

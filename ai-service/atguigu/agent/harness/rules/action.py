@@ -39,13 +39,13 @@ class ActionCatalog:
     def __init__(self, definitions: list[ActionDefinition]):
         self.definitions = {action_definition.action_code: action_definition for action_definition in definitions}
 
-    def get_action_definition(self, action_code: ActionCode) -> ActionDefinition:
+    def get_action_definition(self, action_code: ActionCode) -> ActionDefinition | None:
         """
         职责: 根据action_code找对象
         :param action_code:
         :return:
         """
-        return self.definitions[action_code]
+        return self.definitions.get(action_code)
 
     def get_page_action_index(self) -> str:
         """

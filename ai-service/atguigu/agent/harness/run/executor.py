@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 from langchain_core.callbacks import UsageMetadataCallbackHandler
+from langchain_core.messages import SystemMessage
 
 from atguigu.agent.harness.run.context import build_messages, AgentRunContext
 from atguigu.app.models.enums import AgentTraceStatus
@@ -23,7 +24,7 @@ class AgentExecutor:
         self._settings = get_settings()
         self._session = session
         self._agent = agent
-        self._validator = Validator()
+        self._validator = Validator(session)
 
     async def start_run(self,
                         payload: AgentRunRequest,
@@ -57,6 +58,8 @@ class AgentExecutor:
         try:
             run_result = await self._invoke_agent(payload, current_user, agent_traces)
         except Exception as exc:
+            # ①. 调用llm进行推理失败---二次重试
+            # ②：护栏校验一次又失败----二次重试
             logger.exception("Agent推理会话 %s 任务期间出错", payload.conversation_id)
             agent_traces.status = AgentTraceStatus.FAILED
             agent_traces.result = {"text": f"AI 执行出错，原因:{exc}"}
@@ -98,26 +101,39 @@ class AgentExecutor:
             trace_id=agent_traces.id
         )
 
-        # 3. Agent运行
-        try:
-            # 3.1 调用Agent
-            agent_output = await self._agent.ainvoke({"messages": messages},
-                                                     context=context,
-                                                     config={
-                                                         "callbacks": [call_back]
-                                                     })
+        for attempt in range(self._settings.agent_max_attempts):
+            # 3. Agent运行
+            agent_output: dict[str, Any] = await self._agent.ainvoke({"messages": messages},
+                                                                     context=context,
+                                                                     config={
+                                                                         "callbacks": [call_back]
+                                                                     })
+            # 3.1 校验(护栏校验)
+            try:
+                return await self._validator.validate_agent_output(
+                    agent_output['structured_response'],
+                    context.trace_id,
+                    agent_output.get('skill_code')
+                )
+                # 3.2 调用Agent期间出错
+            except ValidateAgentOutError as exc:
+                # 到达重试次数，异常抛出去
+                if attempt == self._settings.agent_max_attempts - 1:
+                    raise exc
 
-            # run_result = self._validator.validate_agent_output(agent_output)
-            return agent_output
-            # 3.2 调用Agent期间出错
-        except ValidateAgentOutError as exc:
-            # 3.3 重试纠错（把执行完的结果以及【我要求你根据上一次结果的信息，给我重试】指令）
-            pass
-        finally:
-            # 3.4 统计token用量
-            input_tokens, output_tokens = self._summary_tokens(call_back)
-            agent_traces.input_tokens = input_tokens
-            agent_traces.output_tokens = output_tokens
+                # 3.3 重试纠错（把执行完的结果以及【我要求你根据上一次结果的信息，给我重试】指令）
+                logger.exception(f"执行Agent期间出现了护栏校验异常，原因%s", str(exc))
+
+                messages = [
+                    *agent_output["messages"],
+                    SystemMessage(content=f"上一次回复未通过校验：{exc}，请修正后重新回复。")
+                ]
+
+            finally:
+                # 3.4 统计token用量
+                input_tokens, output_tokens = self._summary_tokens(call_back)
+                agent_traces.input_tokens = input_tokens
+                agent_traces.output_tokens = output_tokens
 
     def _summary_tokens(self, call_back: UsageMetadataCallbackHandler) -> tuple[int, int]:
         """

@@ -1,8 +1,9 @@
 import json
-from typing import Any
+from typing import Any, NotRequired
 from dataclasses import dataclass
 
 from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
+from langchain.agents import AgentState
 
 from atguigu.app.schemas import AgentRunRequest
 from atguigu.common.settings import get_settings
@@ -10,8 +11,19 @@ from atguigu.common.settings import get_settings
 
 @dataclass(frozen=True, slots=True)
 class AgentRunContext:
+    """
+    上下文： 关注点在外部数据不会修改(静态只读)
+    """
     access_token: str  # 工具执行的时候要用（调用电商服务，要求提供认证信息）
     trace_id: str  # 工具执行的时候用(工具结果要保存到agent_too_call表中需要)
+
+
+class AgentRunState(AgentState):
+    """
+    上下文：关注点在内部数据会修改（动态写操作）
+    """
+
+    skill_code: NotRequired[str]
 
 
 def build_messages(payload: AgentRunRequest) -> list[BaseMessage]:

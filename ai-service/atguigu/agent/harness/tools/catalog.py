@@ -34,7 +34,7 @@ class ToolCatalog:
 
     def get_tool_category(self, tool_name: str):
         """
-        职责： 根据工具名获取工具类别(TODO:校验时用该方法)
+        职责： 根据工具名获取工具类别
         :param tool_name:
         :return:
         """

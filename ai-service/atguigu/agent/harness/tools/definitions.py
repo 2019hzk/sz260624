@@ -1,7 +1,10 @@
 from langchain_core.tools import tool
 from langchain.tools import ToolRuntime
+from langchain_core.messages import ToolMessage
+from langgraph.types import Command
 from typing import Annotated
 
+from atguigu.agent.harness.rules.skill import SKILL_CATALOG
 from atguigu.agent.harness.run.context import AgentRunContext
 from atguigu.agent.harness.tools.executor import tool_executor
 from atguigu.common.utils import normalized_resource_id
@@ -163,3 +166,34 @@ async def list_after_sales(
         "get_logistics",
         query_params or {},
         operator=lambda: ecommerce_client.get_json("/after-sales", query_params=query_params))
+
+
+
+
+
+
+
+@tool
+async def load_skill(
+        runtime: ToolRuntime[AgentRunContext],
+        skill_code: Annotated[str, "用户当前问题最相关的客服领域技能码"]
+) -> Command:
+    """加载客服领域技能并更新当前 Agent 的能力范围"""
+
+    skill_definition = SKILL_CATALOG.get_skill_definition(skill_code)
+
+    # 1. 根据领域码选择领域的指导
+    skill_guidance = "\n".join(
+        f"{index}. {guidance}" for index, guidance in enumerate(skill_definition.guidance, start=1))
+
+    # 2. 利用Command修改state并且返回工具消息(领域指导)
+    return Command(  # 更新AgentRunState中的skill_code
+        update={
+            "skill_code": skill_code,  # 将skill_code存储到一个AgentRunState去
+            "messages": [
+                ToolMessage(content=f"已加载到领域码{skill_code}，且对应的领域指导是{skill_guidance}",
+                            tool_call_id=runtime.tool_call_id)
+            ]
+
+        }
+    )
