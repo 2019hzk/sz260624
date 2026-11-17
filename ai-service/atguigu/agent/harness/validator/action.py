@@ -35,16 +35,16 @@ def validate_page_action(successful_tool_calls: list[AgentToolCall],
 
     # 3. 校验resource_id
     # 如果行动码是BROWSE_ORDERS，可以不带resource_id,直接构建前端按钮需要的信息
-    resource_type = action_definition(action_code)
+    resource_type = action_definition.resource_type
     if resource_type is None:
         return action_definition.build_page()
 
     # 如果行动码不是BROWSE_ORDERS，必须要带resource_id，只要不带，继续抛出ValidateAgentOutError，否则构建前端按钮需要的信息
     resource_id = page_action.resource_id
 
-    normalize_resource_id = normalized_resource_id(resource_id)
-    if normalize_resource_id is None:
+    if resource_id is None:
         raise ValidateAgentOutError(f"{action_code} 必须提供订单编号")
+    normalize_resource_id = normalized_resource_id(resource_id)
 
     # 4. 校验resource_id的值是不是调用get_order(order_id:resource_id) 是，才构建前端按钮需要的信息，否则也是继续抛出ValidateAgentOutError
 
@@ -55,7 +55,7 @@ def validate_page_action(successful_tool_calls: list[AgentToolCall],
     _validate_order_status(order_data['status'], action_code, normalize_resource_id)
 
     # 5. 返回前端按钮需要的信息
-    return action_definition.build_page()
+    return action_definition.build_page(resource_id=normalize_resource_id)
 
 
 def _validate_get_order(normalize_resource_id: str,

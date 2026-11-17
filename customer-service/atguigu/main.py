@@ -10,8 +10,8 @@ async def start_uvicorn():
     # 更换uvicorn启动方式为异步方式
     server = uvicorn.Server(
         config=uvicorn.Config(
-            app="app.app:app",
-            host=settings.app_host,
+            app="atguigu.app.app:app",
+            host=settings.api_host,
             port=settings.api_port,
             loop="none"  # 显示指定一定使用到我们自定义的事件循环
         )

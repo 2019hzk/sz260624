@@ -181,12 +181,13 @@ class ChatService:
         # 3. 如果调用ai-service失败
         if error is not None:
             # 3.1 重试用完
-            if claimed_turn.attempts > self._settings.ai_worker_max_attempts:
+            if claimed_turn.attempts >= self._settings.ai_worker_max_attempts:
                 claimed_turn.status = TurnStatus.FAILED
                 self._admin_service.create_handoff(conversation,
                                                    summary="AI 服务多次调用异常，系统自动降级转接人工客服")  # 人工客服工单表创建一个工单
                 conversation.mode = ConversationMode.QUEUED
-                self._save_ai_reply(conversation, {"text": "当前智能助手正忙，已自动为您转接人工客服处理，请稍候。"})  # 用户看到的text内容
+                self._save_ai_reply({"text": "当前智能助手正忙，已自动为您转接人工客服处理，请稍候。"},
+                                    conversation)  # 用户看到的text内容
 
             # 3.2 重试未用完
             else:

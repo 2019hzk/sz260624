@@ -1,8 +1,9 @@
 from enum import StrEnum
 from langchain_core.tools import BaseTool
 
-from atguigu.agent.harness.tools.definitions import search_products, get_product, list_orders, get_order, get_logistics, \
-    list_after_sales
+from atguigu.agent.harness.tools.definitions import (
+    search_products, get_product, list_orders, get_order, get_logistics, \
+    list_after_sales, search_knowledge, load_skill)
 
 
 class ToolCategory(StrEnum):
@@ -48,6 +49,8 @@ TOOL_CATALOG = ToolCatalog([
     (list_orders, ToolCategory.BUSINESS),
     (get_order, ToolCategory.BUSINESS),
     (get_logistics, ToolCategory.BUSINESS),
-    (list_after_sales, ToolCategory.BUSINESS)
+    (list_after_sales, ToolCategory.BUSINESS),
+    (load_skill, ToolCategory.GUIDANCE),
+    (search_knowledge, ToolCategory.KNOWLEDGE)
 
 ])

@@ -6,11 +6,8 @@
 from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-
 from atguigu.agent.harness.tools.catalog import TOOL_CATALOG, ToolCategory
-from atguigu.agent.harness.validator.action import validate_page_action
-from atguigu.agent.harness.validator.answer import validate_answer
-from atguigu.agent.llm.output import AgentOutput, PageAction
+from atguigu.agent.llm.output import AgentOutput
 from atguigu.app.models.enums import ReplyType, ToolResultCode
 from atguigu.app.models.models import AgentToolCall
 
@@ -19,6 +16,8 @@ class ValidateAgentOutError(ValueError):
     pass
 
 
+from atguigu.agent.harness.validator.action import validate_page_action
+from atguigu.agent.harness.validator.answer import validate_answer
 # 降级兜底的回复内容
 BUSINESS_FAILURE_MESSAGE = "暂时无法查询到可靠的订单、商品、物流或售后信息，请您稍后重试，或直接发送“转人工”由人工客服为您处理。"
 

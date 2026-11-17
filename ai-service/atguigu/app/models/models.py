@@ -2,7 +2,7 @@ from typing import Any
 from datetime import datetime
 
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String,Text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from atguigu.app.models.enums import AgentTraceStatus
@@ -45,3 +45,15 @@ class AgentToolCall(Base):
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=get_utcnow)
 
+
+
+
+class KnowledgeChunk(Base):
+    """存储上传的 PDF 知识文档内容"""
+
+    __tablename__ = "knowledge_chunks"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True, default=lambda: get_uid("kb"))
+    file_name: Mapped[str] = mapped_column(String(200), index=True)
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=get_utcnow)

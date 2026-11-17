@@ -34,9 +34,7 @@ class SkillScopeMiddleAware(AgentMiddleware[AgentRunState, AgentRunContext, Agen
         if  skill_code is not None:
             # 2. 获取技能对象
             definition = SKILL_CATALOG.get_skill_definition(skill_code)
-            all_tool_name.append(definition.tools)   # 支持跨领域
-
-
+            all_tool_name.extend(definition.tools)   # 支持跨领域
 
         # 3. 该领域真正的工具对象
         allow_tools = [tool for tool in request.tools if tool.name in all_tool_name]

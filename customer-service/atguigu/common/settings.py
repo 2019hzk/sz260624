@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     jwt_secret: str = Field("ecommerce-secret", description="jwt秘钥")
 
     jwt_algorithm: str = Field("HS256", description="jwt加密以及解密的算法")
-    app_host: str = Field("0.0.0.0", description="服务的访问域名")
+    api_host: str = Field("0.0.0.0", description="服务的访问域名")
     api_port: int = Field("8000", description="服务的访问端口")
     cors_origins: list[str] = Field(
         ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174"],

@@ -7,6 +7,7 @@ from typing import Annotated
 from atguigu.agent.harness.rules.skill import SKILL_CATALOG
 from atguigu.agent.harness.run.context import AgentRunContext
 from atguigu.agent.harness.tools.executor import tool_executor
+from atguigu.app.services.knowledge import search_kb
 from atguigu.common.utils import normalized_resource_id
 from atguigu.infrastructure.client import EcommerceClient
 
@@ -29,7 +30,7 @@ async def search_products(
     tool_arguments = {"query": query.strip()}
 
     # 3. 调用工具执行器，返回结果
-    return tool_executor.execute_tool(
+    return await tool_executor.execute_tool(
         runtime,
         "search_products",
         tool_arguments,
@@ -55,7 +56,7 @@ async def get_product(
     tool_arguments = {"product_id": normalized_product_id}
 
     # 3. 调用工具执行器，返回结果
-    return tool_executor.execute_tool(
+    return await tool_executor.execute_tool(
         runtime,
         "get_product",
         tool_arguments,
@@ -76,7 +77,7 @@ async def list_orders(runtime: ToolRuntime[AgentRunContext]) -> str:
     ecommerce_client = EcommerceClient(runtime.context.access_token)
 
     # 2. 调用工具执行器，返回结果
-    return tool_executor.execute_tool(
+    return await tool_executor.execute_tool(
         runtime,
         "list_orders",
         {},
@@ -105,11 +106,11 @@ async def get_order(
     tool_arguments = {"order_id": normalized_order_id}
 
     # 3. 调用工具执行器，返回结果
-    return tool_executor.execute_tool(
+    return await tool_executor.execute_tool(
         runtime,
         "get_order",
         tool_arguments,
-        operator=lambda: ecommerce_client.get_json(f"/products/{normalized_order_id}"))
+        operator=lambda: ecommerce_client.get_json(f"/orders/{normalized_order_id}"))
 
 
 @tool
@@ -133,7 +134,7 @@ async def get_logistics(
     tool_arguments = {"order_id": normalized_order_id}
 
     # 3. 调用工具执行器，返回结果
-    return tool_executor.execute_tool(
+    return await tool_executor.execute_tool(
         runtime,
         "get_logistics",
         tool_arguments,
@@ -161,16 +162,11 @@ async def list_after_sales(
     query_params = {"order_id": normalized_order_id} if normalized_order_id is not None else None
 
     # 3. 调用工具执行器，返回结果
-    return tool_executor.execute_tool(
+    return await tool_executor.execute_tool(
         runtime,
-        "get_logistics",
+        "list_after_sales",
         query_params or {},
         operator=lambda: ecommerce_client.get_json("/after-sales", query_params=query_params))
-
-
-
-
-
 
 
 @tool
@@ -196,4 +192,22 @@ async def load_skill(
             ]
 
         }
+    )
+
+
+@tool
+async def search_knowledge(
+        query: Annotated[str, "需要查询的平台规则、服务政策或帮助说明"],
+        runtime: ToolRuntime[AgentRunContext]
+) -> str:
+    """
+    查询平台知识内容。
+    用户询问售后规则、服务政策时调用。
+    该工具不用于查询订单、商品、库存、物流进度等实时业务数据。
+    """
+    return await tool_executor.execute_tool(
+        runtime=runtime,
+        tool_name="search_knowledge",
+        arguments={"query": query},
+        operator=lambda: search_kb()
     )
