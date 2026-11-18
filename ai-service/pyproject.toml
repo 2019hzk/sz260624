@@ -16,7 +16,8 @@ dependencies = [
     "pypdf>=6.21.4",
     "python-multipart>=0.0.32",
     "typesafe-sdk>=0.7.5",
-    "notebook>=7.6.3"
+    "notebook>=7.6.3",
+    "pillow>=13.0.0",
 ]
 
 [project.optional-dependencies]

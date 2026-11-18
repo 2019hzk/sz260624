@@ -18,6 +18,7 @@ class ValidateAgentOutError(ValueError):
 
 from atguigu.agent.harness.validator.action import validate_page_action
 from atguigu.agent.harness.validator.answer import validate_answer
+from atguigu.agent.harness.validator.jev import check_output
 # 降级兜底的回复内容
 BUSINESS_FAILURE_MESSAGE = "暂时无法查询到可靠的订单、商品、物流或售后信息，请您稍后重试，或直接发送“转人工”由人工客服为您处理。"
 
@@ -83,7 +84,11 @@ class Validator:
             # f) 有成功业务工具（校验ANSWER）
             validate_answer(agent_output.text, successful_bs_tool_calls)
 
-            # g) 校验页面行动
+            # g) Jev 语义护栏校验answer
+            await check_output(agent_output.text, successful_bs_tool_calls)
+
+
+            # h) 校验页面行动
             page_action: dict[str, Any] = validate_page_action(successful_bs_tool_calls, agent_output.page_action)
 
             # h) 返回

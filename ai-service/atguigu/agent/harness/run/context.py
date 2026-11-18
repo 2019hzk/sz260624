@@ -2,9 +2,10 @@ import json
 from typing import Any, NotRequired
 from dataclasses import dataclass
 
-from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
+from langchain_core.messages import BaseMessage, AIMessage, HumanMessage, SystemMessage
 from langchain.agents import AgentState
 
+from atguigu.agent.harness.rules.skill import SkillCode, SKILL_CATALOG
 from atguigu.app.schemas import AgentRunRequest
 from atguigu.common.settings import get_settings
 
@@ -26,10 +27,11 @@ class AgentRunState(AgentState):
     skill_code: NotRequired[str]
 
 
-def build_messages(payload: AgentRunRequest) -> list[BaseMessage]:
+def build_messages(payload: AgentRunRequest, skill_code: SkillCode | None = None) -> list[BaseMessage]:
     """
     职责： 标准化消息对象为LangChain的消息对象
     :param payload:
+    :param skill_code:
     :return:
     """
 
@@ -49,7 +51,14 @@ def build_messages(payload: AgentRunRequest) -> list[BaseMessage]:
 
     messages.append(HumanMessage(content=current_messages))
 
-    # 4. 返回(历史对话消息 当前轮次消息)
+    # 4. 若匹配到领域技能，将对应技能规则注入上下文
+    if skill_code is not None:
+        skill_definition = SKILL_CATALOG.get_skill_definition(skill_code)
+        skill_guidance = "\n".join(f"- {guidance}" for guidance in skill_definition.guidance)
+        messages.append(
+            SystemMessage(content=f"已经成功加载技能{skill_code}，请遵循以下规则:{skill_guidance}")
+        )
+    # 5. 返回(历史对话消息 当前轮次消息)
     return messages
 
 
